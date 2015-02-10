@@ -12,10 +12,9 @@ def main():
 
     while True:
         data = raw_input('>>> ') + '\n'
-        logging.debug(data)
         stream.write(data)
-        reply = yield stream.read_bytes(256, partial=True)
-        logging.info('Reply: ' + reply)
+        reply = yield stream.read_until('\n')
+        logging.info('Reply: ' + repr(reply))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
