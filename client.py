@@ -11,10 +11,10 @@ def main():
     stream = yield client.connect('127.0.0.1', '8080')
 
     while True:
-        data = raw_input('>>> ')
+        data = raw_input('>>> ') + '\n'
         logging.debug(data)
         stream.write(data)
-        reply = yield stream.read_until('\n')
+        reply = yield stream.read_bytes(256, partial=True)
         logging.info('Reply: ' + reply)
 
 if __name__ == "__main__":
