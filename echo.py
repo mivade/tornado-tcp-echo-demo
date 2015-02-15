@@ -11,9 +11,11 @@ from tornado.tcpserver import TCPServer
 
 class EchoServer(TCPServer):
     """Tornado asynchronous echo TCP server."""
+    @gen.coroutine
     def handle_stream(self, stream, address):
         print("Incoming connction from " + str(address))
-        self.echo(stream, address)
+        while True:
+            yield self.echo(stream, address)
 
     @gen.coroutine
     def echo(self, stream, address):
