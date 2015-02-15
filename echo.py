@@ -52,6 +52,12 @@ def start_server():
 
 @gen.coroutine
 def client():
+    """In this overly simplistic example, there really isn't a need
+    for this to be asynchronous since it acts completely
+    synchronous. However, for proof of concept, I'm making it
+    async.
+
+    """
     stream = yield TCPClient().connect('127.0.0.1', 8080)
     while True:
         data = raw_input('>>> ') + '\n'
