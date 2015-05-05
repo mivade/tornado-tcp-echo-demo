@@ -1,11 +1,15 @@
 """Tornado TCP echo server/client demo."""
 
-from __future__ import print_function
-from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.ioloop import IOLoop
+from tornado.options import define, options
 from tornado import gen
 from tornado.iostream import StreamClosedError
 from tornado.tcpclient import TCPClient
 from tornado.tcpserver import TCPServer
+
+define('port', default=8080, help="TCP port to use")
+define('server', default=False, help="Run as the echo server")
+define('encoding', default='utf-8', help="String encoding")
 
 # Server
 # -----------------------------------------------------------------------------
@@ -13,12 +17,6 @@ from tornado.tcpserver import TCPServer
 class EchoServer(TCPServer):
     """Tornado asynchronous echo TCP server."""
     clients = set()
-
-    @classmethod
-    def show_clients(cls):
-        print("Connected clients: ")
-        for client in EchoServer.clients:
-            print(client)
     
     @gen.coroutine
     def handle_stream(self, stream, address):
@@ -35,43 +33,46 @@ class EchoServer(TCPServer):
 
     @gen.coroutine
     def echo(self, stream):
-        data = yield stream.read_until('\n')
+        data = yield stream.read_until('\n'.encode(options.encoding))
         print('Echoing data: ' + repr(data))
         yield stream.write(data)
 
 def start_server():
     server = EchoServer()
-    server.listen(8080)
-    print("Starting server on tcp://localhost:8080")
-    show_clients = PeriodicCallback(lambda: server.show_clients(), 5000)
-    show_clients.start()
+    server.listen(options.port)
+    print("Starting server on tcp://localhost:" + str(options.port))
     IOLoop.instance().start()
 
 # Client
 # -----------------------------------------------------------------------------
 
 @gen.coroutine
-def client():
-    """In this overly simplistic example, there really isn't a need
-    for this to be asynchronous since it acts completely
-    synchronous. However, for proof of concept, I'm making it
-    async.
+def echo(stream, text):
+    """Send the text to the server and print the reply."""
+    if text[-1] != '\n':
+        text = text + '\n'
+    yield stream.write(text.encode(options.encoding))
+    reply = yield stream.read_until('\n'.encode(options.encoding))
+    print(reply.decode(options.encoding).strip())
+
+@gen.coroutine
+def run_client():
+    """Setup the connection to the echo server and wait for user
+    input.
 
     """
-    stream = yield TCPClient().connect('127.0.0.1', 8080)
-    while True:
-        data = raw_input('>>> ') + '\n'
-        yield stream.write(data)
-        reply = yield stream.read_until('\n')
-        print(reply)
-        if reply.strip() == 'quit':
-            stream.close()
-            break
+    stream = yield TCPClient().connect('127.0.0.1', options.port)
+    try:
+        while True:
+            data = input('(echo) ')
+            yield echo(stream, data)
+    except KeyboardInterrupt:
+        stream.close()
 
 if __name__ == "__main__":
-    import sys
-    if sys.argv[1] == 'client':
-        print("Starting client...")
-        IOLoop.instance().run_sync(client)
-    elif sys.argv[1] == 'server':
+    options.parse_command_line()
+    if options.server:
         start_server()
+    else:
+        print("Starting client...")
+        IOLoop.instance().run_sync(run_client)
